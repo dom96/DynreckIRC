@@ -1,25 +1,11 @@
 #!/usr/bin/env python
 """
-MDS IRC Lib
-Copyright (C) 2009 Mad Dog Software 
-http://maddogsoftware.co.uk - morfeusz8@yahoo.co.uk
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>
+DynreckIRC
+Copyright (C) 2010 dom96
 """
 import logger
 import threading
-lock = threading.Lock() #The global lock for events_manager.events
+lock = threading.Lock() # The global lock for events_manager.events
 
 class events_manager:
     def __init__(self):
@@ -32,7 +18,6 @@ class events_manager:
             
         return formatted_string
         
-        
     def hook_event(self, command, callback, priority=0, args=[]):
         import uuid
         id = uuid.uuid1()
@@ -44,7 +29,7 @@ class events_manager:
         
     def unhook_event(self, id):
         global lock
-        with lock: #Only take the lock when using the events list
+        with lock: # Only take the lock when using the events list
             for e in self.events:
                 if e.id == id:
                     self.events.remove(e)
@@ -54,11 +39,10 @@ class events_manager:
         
     def call_events(self, server, command, word, word_eol):
         global lock
-        with lock: #Only take the lock when using the events list
-            sortedList = self.events
+        with lock: # Only take the lock when using the events list
+            self.events.sort(cmp=lambda x, y: cmp(x.priority, y.priority))
             
-        sortedList.sort(cmp=lambda x, y: cmp(x.priority, y.priority))    
-        for e in sortedList:
+        for e in self.events:
             if e.command.lower() == command.lower():
                 try:
                     e.callback(server, word, word_eol, e.args)

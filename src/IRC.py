@@ -1,21 +1,7 @@
 #!/usr/bin/env python
 """
-MDS IRC Lib
-Copyright (C) 2009 Mad Dog Software 
-http://maddogsoftware.co.uk - morfeusz8@yahoo.co.uk
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>
+DynreckIRC
+Copyright (C) 2010 dom96
 """
 import logger
 import thread
@@ -25,55 +11,58 @@ import thread
 version = "0.1"
 
 class connection:
-    def __init__(self, addresses, nicks, realname, username):
-        self.addresses = addresses # Addresses of which to connect to.
+    def __init__(self, addrInfo, nicks, realname, username):
+        self.addrInfo = addrInfo # [address - str, port - int, PASS - str, ssl - bool]
         self.nicks = nicks # Nicks to use
-        self.realname = realname # Self explanatory...
-        self.username = username # Self explanatory...
+        self.realname = realname # Your realname
+        self.username = username # Your username
         
-        #If connected to a server, it's the servers address
-        self.address = None #This is none if not connected
-        self.port = None #This is none if not connected
-        self.socket = None #This is none if not connected
+        # The following three variables are None, if not connected to a server
+        self.address = None # Address of the server, if connected
+        self.port = None # port, if connected
+        self.socket = None # this servers socket object, if connected
         
-        self.autojoinchans = [] #These will be joined when the 001 command is received.
+        self.autojoinchans = [] # These will be joined when the 001 command is received.
         
         self.nick = nicks[0]
         
-        #Each server has it's own events
+        # Each server has it's own events
         import events
         self.events = events.events_manager()
-        #And also the serverEvents, stuff like, when you get disconnected etc.
+        # And also the serverEvents, stuff like, when you get disconnected etc.
         self.serverEvents = events.events_manager()
         
-        #pinger
+        # pinger
         self.pinger = self.server_pinger(self)
         
         self.gen_eol = gen_eol
         
-    def connect(self, addr=0, pingServ=True, threaded=True):
-        """Connects this server(Asynchronously), you can pass a optional integer of the address(in addresses)"""
+    def connect(self, pingServ=True, threaded=True):
+        """
+        Connects to this server, if pingServ is True lag will be measured by pinging the server.
+        If threaded is True, connect will be executed in a new thread.
+        """
         try:
-            #If connect is called, spawn it in a new thread
+            # If connect is called, spawn it in a new thread
             if threaded == True:
-                thread.start_new(self.connect, (addr, pingServ, False))
+                thread.start_new(self.connect, (pingServ, False))
                 return
             
             import socket
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            #SSL
-            if self.addresses[addr][3] == True:
+            # SSL
+            if self.addrInfo[3] == True:
                 try:
                     import ssl
                 except:
                     logger.log_instance.log("SSL ERROR", "IRC.server.connect", "error")
                 self.socket = ssl.wrap_socket(socket)
                 
-            #Connect to the server
+            # Connect to the server
             try:
-                self.socket.connect((self.addresses[addr][0], self.addresses[addr][1]))
-                self.address = self.addresses[addr][0]
-                self.port = self.addresses[addr][1]
+                self.socket.connect((self.addrInfo[0], self.addrInfo[1]))
+                self.address = self.addrInfo[0]
+                self.port = self.addrInfo[1]
             except Exception as err:
                 self.address = None
                 self.port = None
@@ -83,35 +72,38 @@ class connection:
                 logger.log_instance.log("Couldn't connect to server: " + str(err), "IRC.server.connect", "error")
                 
             
-            #Register the connection
-            if self.addresses[addr][2] != '':
-                self.socket.send("PASS %s \r\n" % (self.addresses[addr][2]))
+            # Register the connection - Send (PASS) NICK, USER.
+            if self.addrInfo[2] != '':
+                self.socket.send("PASS %s \r\n" % (self.addrInfo[2]))
             
             self.socket.send("NICK %s\r\n" % (self.nick))
             
             self.socket.send("USER %s %s %s :%s\r\n" % (self.username, \
-                self.username, self.addresses[addr][0], self.realname))
+                self.username, self.addrInfo[0], self.realname))
             
-            #Hook the RPL_WELCOME(001) command, to the ping_server function.
+            # Hook the RPL_WELCOME(001) command, to the ping_server function.
             if pingServ:
                 self.events.hook_event("001", lambda s, w, w_eol, \
                     args: thread.start_new(lambda x: self.pinger.ping_server(), (None,)))
-            #And also hook the 001 to the autojoin_chans function
+                    
+            # And also hook the 001 to the autojoin_chans function
             if len(self.autojoinchans) != 0:
                 self.events.hook_event("001", lambda s, w, w_eol, \
                     args: thread.start_new(lambda x: self.autojoin_chans(), (None,)))
-            #This will reply to the PING command
+                    
+            # This will reply to the PING command
             self.events.hook_event("PING", lambda serv, w, w_eol, args: serv.send("PONG %s" % (w_eol[2])), 5)
             
             #########################
-            #RESPONSE FUNCTION      #
+            # RESPONSE FUNCTION     #
             #########################
-            #thread.start_new(lambda x: self.response(), (None,))
             self.response() # Use this thread for the response function.
 
         except Exception as err:
-            logger.log_instance.log(err, "IRC.connect", "critical")
+            import traceback
+            traceback.print_exc()
         
+            logger.log_instance.log(err, "IRC.connect", "critical")
         
     def response(self):
         msg = ""
@@ -122,16 +114,16 @@ class connection:
                     logger.log_instance.log(msg, "IRC.server", "info")
                     for m in msg.split("\r\n"):
                         if m != "":
-                            #If the message does not start with a :
-                            #Prepend ":Server.address.here"
+                            # If the message does not start with a :
+                            # Prepend ":Server.address.here"
                             if m.startswith(":") != True:
                                 m = ":" + self.address + " " + m
                         
                             ###############################
                             # Splits the message properly #
                             ###############################
-                            if ":" in m[1:]: #Check if there is a : in this command(Excluding the first character, which usually is a :)
-                                #Gets everything after : as one instead of split into spaces
+                            if ":" in m[1:]: # Check if there is a : in this command(Excluding the first character, which usually is a :)
+                                # Gets everything after : as one instead of split into spaces
                                 n_front_colon = m
                                 if n_front_colon.startswith(":"):
                                     n_front_colon = n_front_colon[1:]
@@ -149,8 +141,8 @@ class connection:
                             
                     msg = ""
             else:
-                #msg is equal to '' which means the server sent ''
-                #Which means the server disconnected us
+                # msg is equal to '' which means the server sent ''
+                # Which means the server disconnected us
                 self.serverEvents.call_events(self, "disconnect", ["disconnect", "Server closed connection"], [])
                 self.address = None
                 self.port = None
@@ -160,7 +152,7 @@ class connection:
     def send(self, text):
         self.socket.send(text + "\r\n")
         logger.log_instance.log(text + "\\r\\n", "IRC.server.send", "info")
-            
+    
     class server_pinger:
         def __init__(self, server):
             self.server = server
@@ -177,7 +169,7 @@ class connection:
             import time
             diffTime = time.time() - float(word[3].replace("LAG", ""))
             self.lag = diffTime
-            self.serverEvents.call_events(self, "lag_changed", ["lag_changed", diffTime], [])
+            self.server.serverEvents.call_events(self, "lag_changed", ["lag_changed", diffTime], [])
             
             #logger.log_instance.log(diffTime, "IRC.server_pinger.pong_event", "debug")
             
@@ -200,7 +192,7 @@ class connection:
             
             def names_event(self, server, word, word_eol, args):
                 pass
-            
+                # TODO: Get the users on the channel and other info. Update them too.
             
             
             class user:
@@ -210,8 +202,7 @@ class connection:
                     self.realname = ""
                     self.username = ""
                     self.hostname = ""
-            
-            
+
             
 def gen_eol(text, aft_colon=""):
     word_eol = []

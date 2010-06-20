@@ -1,21 +1,7 @@
 #!/usr/bin/env python
 """
-MDS IRC Lib
-Copyright (C) 2009 Mad Dog Software 
-http://maddogsoftware.co.uk - morfeusz8@yahoo.co.uk
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>
+DynreckIRC
+Copyright (C) 2010 dom96
 """
 #I WAS GONNA USE THE LOGGING MODULE BUT DECIDED THAT IT IS 
 #TOO COMPLICATED, AND MAKING A SIMPLE LOGGER MODULE IS EASIER.
@@ -32,8 +18,8 @@ class logger:
         Starts the log, opens the file, writes text to the file, and a div tag
         """
         #FILENAME
-        LOG_FILENAME = os.path.join(os.path.dirname(sys.argv[0]), "log.html")
-        
+        LOG_FILENAME = os.path.join(os.getcwd(), "log.html")
+        print LOG_FILENAME
         
         #Open the log file...
         self.fLog = open(LOG_FILENAME, "a")
