@@ -92,5 +92,5 @@ class logger:
     
 #If this modules is imported, initialize the logger class
 if __name__ != "__main__":
-        log_instance = logger("MDSBot 0.1 initialized")
+        log_instance = logger("Dynreck initialized")
     

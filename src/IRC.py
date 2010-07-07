@@ -54,9 +54,10 @@ class connection:
             if self.addrInfo[3] == True:
                 try:
                     import ssl
+                    self.socket = ssl.wrap_socket(socket)
                 except:
                     logger.log_instance.log("SSL ERROR", "IRC.server.connect", "error")
-                self.socket = ssl.wrap_socket(socket)
+                
                 
             # Connect to the server
             try:
